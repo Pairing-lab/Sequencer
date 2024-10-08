@@ -8271,6 +8271,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sequencer-mempool"
+version = "0.1.0"
+dependencies = [
+ "reth",
+ "revm",
+ "revm-primitives",
+]
+
+[[package]]
 name = "sequencer-revm"
 version = "0.1.0"
 dependencies = [

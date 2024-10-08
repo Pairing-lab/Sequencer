@@ -1,3 +1,12 @@
+# Architecture
+
+시퀀서는 정의하기 나름
+
+![overview](image.png)
+
+일단 이런 구조를 단기적 목표로 ... 
+
+
 bins/sequencer에 있는 main.rs에서 실행파일 실행 
 (그니까 시퀀서 '실행'을 main.rs에서 할 것)
 block_produce.workspace = true
@@ -29,4 +38,7 @@ evm.workspace = true
     - rpc 핸들러 달기
 
 - `storage`
-    - storage 인터페이스 
+    - storage 인터페이스 (state trie를 받을 db) 
+
+- `mempool`
+    - mempool 정의하고 tx 받기 
