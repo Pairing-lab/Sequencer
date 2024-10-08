@@ -1,0 +1,7 @@
+[package]
+name = "sequencer-storage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 필요한 의존성 추가
