@@ -6,9 +6,13 @@ edition = "2021"
 [dependencies]
 revm = { workspace = true }
 revm-primitives = { workspace = true }
-reth = { workspace = true }
-axum.workspace = true
-tokio.workspace = true
-serde.workspace = true
-actix-web = "4"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+
+# We're not using axum or actix-web in the current implementation
+# axum = { workspace = true }
+# actix-web = "4"
+
+# Additional dependencies for our TCP server and JSON-RPC handling
+bytes = "1.0"

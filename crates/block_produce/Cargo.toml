@@ -9,4 +9,3 @@ edition = "2021"
 # revm
 revm.workspace = true
 revm-primitives.workspace = true
-reth.workspace = true 
