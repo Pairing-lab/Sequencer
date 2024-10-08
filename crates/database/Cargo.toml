@@ -1,5 +1,5 @@
 [package]
-name = "sequencer-block_produce"
+name = "sequencer-db"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,4 +10,4 @@ edition = "2021"
 revm.workspace = true
 revm-primitives.workspace = true
 reth.workspace = true 
-
+futures.workspace = true

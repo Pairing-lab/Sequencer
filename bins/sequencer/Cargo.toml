@@ -10,5 +10,8 @@ reth = { workspace = true }
 axum.workspace = true
 tokio.workspace = true
 serde.workspace = true
+database.workspace = true
 actix-web = "4"
 serde_json = "1.0"
+alloy-genesis.workspace = true
+alloy-primitives.workspace = true
