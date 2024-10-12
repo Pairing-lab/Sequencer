@@ -17,10 +17,6 @@ use reth::chainspec::ChainSpec;
 use reth::core::{args::RpcServerArgs, node_config::NodeConfig};
 use reth::builder::rpc::launch_rpc_servers;
 use reth::rpc::builder::RpcServerConfig;
-use mempool::pool::{
-    Mempool,
-    Transaction
-};
 use serde_json::{json, Value};
 use rpc::handler::rpc_handler;
 
