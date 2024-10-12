@@ -13,8 +13,11 @@ use reth::{
 };
 use reth::chainspec::ChainSpec;
 use reth::core::{args::RpcServerArgs, node_config::NodeConfig};
+use reth::builder::rpc::launch_rpc_servers;
+use reth::rpc::builder::RpcServerConfig;
 
 fn handle_client(mut stream: TcpStream, evm: &mut Evm<'_, (), EasyDB>) -> () {
+    
   
             let tx = evm.tx_mut();
 
@@ -24,7 +27,7 @@ fn handle_client(mut stream: TcpStream, evm: &mut Evm<'_, (), EasyDB>) -> () {
 
             let x = &evm.context.evm.env.tx;
 
-            println!("Transaction executed: {:?}", x);
+            println!("Transaction executed: {:?}", output);
 
 }
 
@@ -61,4 +64,3 @@ fn main() -> std::io::Result<()> {
     Ok(())
 
 }
-

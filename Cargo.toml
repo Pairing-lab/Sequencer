@@ -57,3 +57,4 @@ alloy-transport-ws = { version = "0.3.6", default-features = false }
 futures = "0.3"
 futures-core = "0.3"
 futures-util = "0.3"
+eyre = "0.6"

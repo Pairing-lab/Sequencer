@@ -8277,6 +8277,7 @@ dependencies = [
  "alloy-genesis 0.3.6",
  "alloy-primitives",
  "axum",
+ "eyre",
  "reth",
  "revm",
  "revm-primitives",
