@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 # 필요한 의존성 추가
+serde_json.workspace = true
+serde.workspace = true

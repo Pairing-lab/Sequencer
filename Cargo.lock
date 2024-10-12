@@ -8283,6 +8283,7 @@ dependencies = [
  "revm-primitives",
  "sequencer-db",
  "sequencer-mempool",
+ "sequencer-rpc",
  "serde",
  "serde_json",
  "tokio",
@@ -8329,6 +8330,10 @@ dependencies = [
 [[package]]
 name = "sequencer-rpc"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "sequencer-storage"

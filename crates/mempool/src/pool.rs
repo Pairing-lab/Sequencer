@@ -1,12 +1,28 @@
+
+use revm_primitives::ruint::aliases::U160;
+
 use crate::{
     Arc,
     RwLock,
     HashMap
 };
+
+use crate::method::{
+    EthereumRpcMethod
+};
+
+#[derive(Clone, Debug)]
+pub struct Params {
+    pub to: U160,
+    pub data: String
+} 
+
 #[derive(Clone, Debug)]
 pub struct Transaction {
-    pub hash: String,
-    pub data: Vec<u8>,
+    pub jsonrpc: String,
+    pub method: EthereumRpcMethod,
+    pub params: Params
+
 }
 pub struct Mempool {
     transactions: Arc<RwLock<HashMap<String, Transaction>>>,
@@ -15,6 +31,7 @@ pub struct Mempool {
 impl Mempool {
     pub fn new(max_size: usize) -> Self {
         Mempool {
+        
             transactions: Arc::new(RwLock::new(HashMap::new())),
             max_size,
         }

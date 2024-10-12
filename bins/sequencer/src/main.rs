@@ -22,6 +22,8 @@ use mempool::pool::{
     Transaction
 };
 use serde_json::{json, Value};
+use rpc::handler::rpc_handler;
+
 
 #[derive(Deserialize, Debug)]
 struct JsonRpcRequest {
@@ -87,19 +89,7 @@ fn handle_rpc_request(request: JsonRpcRequest) -> JsonRpcResponse {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-
-
-  
-
-
-
-
-    // TCP 리스너 -> 메인 스레드 
-
     let listener = Arc::new(TcpListener::bind("127.0.0.1:8080")?);
-
-
-
 
     println!("Server listening on port 8080");
 
@@ -109,9 +99,6 @@ async fn main() -> std::io::Result<()> {
 
     let mut evm = Evm::builder()
     .modify_tx_env(|tx| {
-        // execution globals block hash/gas_limit/coinbase/timestamp..
-        tx.caller = address!("1000000000000000000000000000000000000000");
-        tx.transact_to = TxKind::Call(address!("0000000000000000000000000000000000000000"));
         //evm.env.tx.data = Bytes::from(hex::decode("30627b7c").unwrap());
         tx.data = bytes!("8035F0CE");
     })
@@ -120,49 +107,8 @@ async fn main() -> std::io::Result<()> {
 
 
     let listener2 = listener.clone();
-    thread::spawn( move || {
-        for stream in listener2.incoming(){
-            match stream{
-            Ok(mut stream) => {
-                let mut buffer = [0; 1024];
-                match stream.read(&mut buffer){
-                    Ok(size )=>{
-                        let received = String::from_utf8_lossy(&buffer[..size]);
-                        println!("Received data: {}", received);  // Log the raw received data
-
-                        match serde_json::from_str::<JsonRpcRequest>(&received) {
-                            Ok(request) => {
-                                let response = handle_rpc_request(request);
-                                let response_json = serde_json::to_string(&response).unwrap();
-                                stream.write_all(response_json.as_bytes()).unwrap();
-                            },
-                            Err(e) => {
-                                println!("Failed to parse JSON-RPC request: {}", e);
-                                let error_response = json!({
-                                    "jsonrpc": "2.0",
-                                    "error": {
-                                        "code": -32700,
-                                        "message": "Parse error"
-                                    },
-                                    "id": null
-                                });
-                                stream.write_all(error_response.to_string().as_bytes()).unwrap();
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        println!("Error reading from stream: {}", e)
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-            }
-        }
-        }
-    });
-
-   
+    thread::spawn(move ||{
+        rpc_handler(listener2) });
 
     for stream in listener.incoming() {
         match stream {
