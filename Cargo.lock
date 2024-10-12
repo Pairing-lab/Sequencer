@@ -8282,6 +8282,7 @@ dependencies = [
  "revm",
  "revm-primitives",
  "sequencer-db",
+ "sequencer-mempool",
  "serde",
  "serde_json",
  "tokio",
@@ -8313,6 +8314,7 @@ dependencies = [
  "reth",
  "revm",
  "revm-primitives",
+ "tokio",
 ]
 
 [[package]]

@@ -10,3 +10,4 @@ edition = "2021"
 revm.workspace = true
 revm-primitives.workspace = true
 reth.workspace = true 
+tokio.workspace = true

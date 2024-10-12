@@ -58,3 +58,5 @@ futures = "0.3"
 futures-core = "0.3"
 futures-util = "0.3"
 eyre = "0.6"
+
+mempool = {path = "crates/mempool", package = "sequencer-mempool", version = "0.1.0"}
