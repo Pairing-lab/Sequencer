@@ -2,10 +2,11 @@
 name = "sequencer-bin"
 version = "0.1.0"
 edition = "2021"
+resolver = "2"
 
 [dependencies]
 revm = { workspace = true }
-revm-primitives = { workspace = true }
+revm-primitives = { workspace = true, features = ["serde"]}
 reth = { workspace = true }
 axum.workspace = true
 tokio.workspace = true
@@ -18,3 +19,26 @@ alloy-primitives.workspace = true
 eyre.workspace = true
 mempool.workspace = true
 rpc.workspace = true
+jsonrpsee = "0.24"
+jsonrpsee-types = "0.24"
+reth-db = { git = "https://github.com/paradigmxyz/reth", default-features = false }
+reth-db-api = { git = "https://github.com/paradigmxyz/reth" }
+reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth" }
+reth-testing-utils = {git = "https://github.com/paradigmxyz/reth"}
+reth-transaction-pool = {git = "https://github.com/paradigmxyz/reth", features = ["test-utils"]}
+reth-primitives = { git  = "https://github.com/paradigmxyz/reth", features = ["reth-codec", "std"]}
+reth-provider = {git = "https://github.com/paradigmxyz/reth", features = ["test-utils"]}
+reth-chainspec = {git = "https://github.com/paradigmxyz/reth"}
+reth-codecs = {git = "https://github.com/paradigmxyz/reth"}
+reth-rpc-eth-types = {git = "https://github.com/paradigmxyz/reth"}
+reth-rpc-eth-api = {git = "https://github.com/paradigmxyz/reth"}
+reth-network-api = {git = "https://github.com/paradigmxyz/reth"}
+reth-node-api = { git = "https://github.com/paradigmxyz/reth"}
+reth-rpc-server-types = {git = "https://github.com/paradigmxyz/reth"}
+reth-rpc = {git = "https://github.com/paradigmxyz/reth"}
+reth-tasks = {git = "https://github.com/paradigmxyz/reth"}
+alloy-consensus = {version = "0.5.4"}
+alloy-network = { version = "0.3.6", default-features = false }
+derive_more = { version = "1", features = ["full"] }
+alloy-eips = { version = "0.3.6", default-features = false }
+alloy-rpc-types-eth = { version = "0.5.4", default-features = false }

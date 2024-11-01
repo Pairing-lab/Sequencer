@@ -1,219 +1,351 @@
-use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write};
-use std::thread;
-use actix_web::rt::spawn;
-use database::easydb::EasyDB;
-use revm::{db::EmptyDB, Evm, inspectors::NoOpInspector, inspector_handle_register};
-use serde::{Deserialize, Serialize};
-use revm_primitives::{address,Bytes, Bytecode, hex, TxKind, bytes};
+//! Example illustrating how to run the ETH JSON RPC API as standalone over a DB file.
+//!
+//! Run with
+//!
+//! ```not_rust
+//! cargo run -p rpc-db
+//! ```
+//!
+//! This installs an additional RPC method `myrpcExt_customMethod` that can queried via [cast](https://github.com/foundry-rs/foundry)
+//!
+//! ```sh
+//! cast rpc myrpcExt_customMethod
+//! ```
 use std::sync::Arc;
-use reth::{
-    builder::{NodeBuilder, NodeHandle},
-    providers::CanonStateSubscriptions,
-    rpc::api::eth::helpers::EthTransactions,
-    tasks::TaskManager,
+
+use alloy_network::AnyNetwork;
+use alloy_primitives::U256;
+use derive_more::Deref;
+use reth::api::node::BuilderProvider;
+use reth_node_api::{FullNodeComponents};
+use reth_primitives::BlockNumberOrTag;
+use reth_provider::{CanonStateSubscriptions, ChainSpecProvider};
+use reth_rpc_eth_api::{
+    helpers::{EthSigner, SpawnBlocking},
+    EthApiTypes,
 };
-use reth::chainspec::ChainSpec;
-use reth::core::{args::RpcServerArgs, node_config::NodeConfig};
-use reth::builder::rpc::launch_rpc_servers;
-use reth::rpc::builder::RpcServerConfig;
-use serde_json::{json, Value};
-use rpc::handler::rpc_handler;
+use reth_rpc_eth_types::{
+    EthApiBuilderCtx, EthApiError, EthStateCache, FeeHistoryCache, GasCap, GasPriceOracle,
+    PendingBlock,
+};
+use reth_tasks::{
+    pool::{BlockingTaskGuard, BlockingTaskPool},
+    TaskExecutor, TaskSpawner, TokioTaskExecutor,
+};
+use tokio::sync::Mutex;
+use reth_rpc::eth::EthTxBuilder;
 
 
-#[derive(Deserialize, Debug)]
-struct JsonRpcRequest {
-    jsonrpc: String,
-    method: String,
-    params: Vec<Value>,
-    id: Value,  // u64 대신 Value 타입으로 변경
-}
-
-#[derive(Serialize)]
-struct JsonRpcResponse {
-    jsonrpc: String,
-    result: Value,
-    id: Value,  // u64 대신 Value 타입으로 변경
-}
-
-fn extract_json_body(request: &str) -> Option<&str> {
-    if let Some(body_start) = request.find("\r\n\r\n") {
-        let body = &request[body_start + 4..];
-        if !body.is_empty() {
-            return Some(body.trim());
-        }
-    }
-    None
-}
-
-fn handle_client(mut stream: TcpStream, evm: &mut Evm<'_, (), EasyDB>) -> () { // Json RPC 핸들러임 
-    let mut buffer = [0; 4096];
-    
-    while let Ok(n) = stream.read(&mut buffer) { // Non persistent로 쓰려면 그냥 while에 안 넣으면 댐 
-        // if let , while let 구문은, 우항의 타입이랑 맞을 때 그값을 좌항 변수에 넣는거야... 
-
-        // 여기서 주의할점은 stream.read가 비동기가 아니라, Blocking 으로 동작한다는 점임 
-        // 그니까, OS 단에서 tcp stream socket buffer에 데이터 찰 때, sleep하고 있는 이 스레드 꺠워서
-        // 다시 동작하게 하는것. 그 외에는, 그냥 CPU 다른 놈한테 주고 쉰다.
-
-
-        if n == 0 {  // 여기서 n이 의미한믄거는 그 stream에서 읽어온 바이트 크기임.
-                    // 사실상 0이면 읽은 Byte 크기가 0이 아니라, FIN을 쳐읽은거임 
-            break;
-        }
-        
-        if let Ok(request_str) = String::from_utf8(buffer[..n].to_vec()) { // 수신된 바이트 배열(buffer)을 UTF-8 문자열로 변환
-            // from_utf8이 vec[u8]가 인풋이네 ㅋㅋ 
-            println!("Received data: {}", request_str);
-
-            if let Some(body) = extract_json_body(&request_str) {
-                println!("JSON body: {}", body);  // 여기서는 전체가 string이어서, Rust의 JSON 으로 파싱해야지 필드 접근이 쉬움. request.method처럼... 
-                
-                match serde_json::from_str::<JsonRpcRequest>(body) {
-                    Ok(request) => {
-                        let response = handle_rpc_request(request);
-                        let response_str = format!( // format!으로 깔끔하게 표현 가능 
-                            "HTTP/1.1 200 OK\r\n\
-                            Content-Type: application/json\r\n\
-                            Access-Control-Allow-Origin: *\r\n\
-                            Content-Length: {}\r\n\
-                            Connection: keep-alive\r\n\
-                            \r\n\
-                            {}", 
-                            serde_json::to_string(&response).unwrap().len(),
-                            serde_json::to_string(&response).unwrap()
-                        );
-                        if let Err(e) = stream.write_all(response_str.as_bytes()) { // 에러 없으면 Tcp stream으로 전송하ㅣ 
-                            println!("Failed to write response: {}", e);
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        println!("Failed to parse RPC request: {}", e);
-                        println!("Request body: {}", body);
-                        
-                        // 에러 응답 전송
-                        let error_response = JsonRpcResponse {
-                            jsonrpc: "2.0".to_string(),
-                            result: json!({
-                                "error": {
-                                    "code": -32700,
-                                    "message": "Parse error"
-                                }
-                            }),
-                            id: Value::Null,
-                        };
-                        
-                        let response_str = format!(
-                            "HTTP/1.1 400 Bad Request\r\n\
-                            Content-Type: application/json\r\n\
-                            Access-Control-Allow-Origin: *\r\n\
-                            Content-Length: {}\r\n\
-                            Connection: keep-alive\r\n\
-                            \r\n\
-                            {}", 
-                            serde_json::to_string(&error_response).unwrap().len(),
-                            serde_json::to_string(&error_response).unwrap()
-                        );
-                        
-                        if let Err(e) = stream.write_all(response_str.as_bytes()) {
-                            println!("Failed to write error response: {}", e);
-                        }
-                    }
-                }
-            }
-        }
-        
-        // 버퍼 초기화
-        buffer = [0; 4096];
-    }
-}
-
-
-
-
-fn handle_rpc_request(request: JsonRpcRequest) -> JsonRpcResponse {
-    println!("Received RPC request: {:?}", request);  // Log the received request
-
-    match request.method.as_str() {
-        "eth_chainId" => {
-            JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                result: json!("0x539"),  // 1337을 16진수로 표현
-                id: request.id,
-            }
-        },
-        "eth_call" => {
-            JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                result: json!({
-                    "status": "0x1",
-                    "gasUsed": "0x5208",
-                    "returnValue": "0x"
-                }),
-                id: request.id,
-            }
-        },
-        "eth_getBalance" => {
-            JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                result: json!("0x0"),
-                id: request.id,
-            }
-        },
-        _ => {
-            JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                result: json!({
-                    "error": {
-                        "code": -32601,
-                        "message": "Method not found"
-                    }
-                }),
-                id: request.id,
-            }
-        }
-    }
-}
+// Custom rpc extension
+pub mod myrpc_ext;
 
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
-    let listener = Arc::new(TcpListener::bind("127.0.0.1:8545")?);
-
-    println!("Server listening on port 8545");
-
-    let contract_data : Bytes = hex::decode( "6060604052341561000f57600080fd5b604051610dd1380380610dd18339810160405280805190602001909190805182019190602001805190602001909190805182019190505083600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055508360008190555082600390805190602001906100a79291906100e3565b5081600460006101000a81548160ff021916908360ff16021790555080600590805190602001906100d99291906100e3565b5050505050610188565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061012457805160ff1916838001178555610152565b82800160010185558215610152579182015b82811115610151578251825591602001919060010190610136565b5b50905061015f9190610163565b5090565b61018591905b80821115610181576000816000905550600101610169565b5090565b90565b610c3a806101976000396000f3006060604052600436106100af576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806306fdde03146100b4578063095ea7b31461014257806318160ddd1461019c57806323b872dd146101c557806327e235e31461023e578063313ce5671461028b5780635c658165146102ba57806370a082311461032657806395d89b4114610373578063a9059cbb14610401578063dd62ed3e1461045b575b600080fd5b34156100bf57600080fd5b6100c76104c7565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156101075780820151818401526020810190506100ec565b50505050905090810190601f1680156101345780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b341561014d57600080fd5b610182600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091908035906020019091905050610565565b604051808215151515815260200191505060405180910390f35b34156101a757600080fd5b6101af610657565b6040518082815260200191505060405180910390f35b34156101d057600080fd5b610224600480803573ffffffffffffffffffffffffffffffffffffffff1690602001909190803573ffffffffffffffffffffffffffffffffffffffff1690602001909190803590602001909190505061065d565b604051808215151515815260200191505060405180910390f35b341561024957600080fd5b610275600480803573ffffffffffffffffffffffffffffffffffffffff169060200190919050506108f7565b6040518082815260200191505060405180910390f35b341561029657600080fd5b61029e61090f565b604051808260ff1660ff16815260200191505060405180910390f35b34156102c557600080fd5b610310600480803573ffffffffffffffffffffffffffffffffffffffff1690602001909190803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610922565b6040518082815260200191505060405180910390f35b341561033157600080fd5b61035d600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610947565b6040518082815260200191505060405180910390f35b341561037e57600080fd5b610386610990565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156103c65780820151818401526020810190506103ab565b50505050905090810190601f1680156103f35780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b341561040c57600080fd5b610441600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091908035906020019091905050610a2e565b604051808215151515815260200191505060405180910390f35b341561046657600080fd5b6104b1600480803573ffffffffffffffffffffffffffffffffffffffff1690602001909190803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610b87565b6040518082815260200191505060405180910390f35b60038054600181600116156101000203166002900480601f01602080910402602001604051908101604052809291908181526020018280546001816001161561010002031660029004801561055d5780601f106105325761010080835404028352916020019161055d565b820191906000526020600020905b81548152906001019060200180831161054057829003601f168201915b505050505081565b600081600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055508273ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff167f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925846040518082815260200191505060405180910390a36001905092915050565b60005481565b600080600260008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054905082600160008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020541015801561072e5750828110155b151561073957600080fd5b82600160008673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254019250508190555082600160008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825403925050819055507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8110156108865782600260008773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825403925050819055505b8373ffffffffffffffffffffffffffffffffffffffff168573ffffffffffffffffffffffffffffffffffffffff167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef856040518082815260200191505060405180910390a360019150509392505050565b60016020528060005260406000206000915090505481565b600460009054906101000a900460ff1681565b6002602052816000526040600020602052806000526040600020600091509150505481565b6000600160008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b60058054600181600116156101000203166002900480601f016020809104026020016040519081016040528092919081815260200182805460018160011615610100020316600290048015610a265780601f106109fb57610100808354040283529160200191610a26565b820191906000526020600020905b815481529060010190602001808311610a0957829003601f168201915b505050505081565b600081600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000205410151515610a7e57600080fd5b81600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254039250508190555081600160008573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600082825401925050819055508273ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef846040518082815260200191505060405180910390a36001905092915050565b6000600260008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050929150505600a165627a7a72305820df254047bc8f2904ad3e966b6db116d703bebd40efadadb5e738c836ffc8f58a0029").unwrap().into();
-    let bytecode_raw = Bytecode::new_raw(contract_data.clone());
-
-
-    let mut evm = Evm::builder()
-    .modify_tx_env(|tx| {
-        tx.caller = address!("1000000000000000000000000000000000000000");
-        tx.transact_to = TxKind::Call(address!("0000000000000000000000000000000000000000"));
-        //evm.env.tx.data = Bytes::from(hex::decode("30627b7c").unwrap());
-        tx.data = bytes!("8035F0CE");
-    })
-    .with_db(EasyDB::new_bytecode(bytecode_raw))
-    .build();
-
-
-    let listener2 = listener.clone();
-    thread::spawn(move ||{
-        rpc_handler(listener2) });
-
-    for stream in listener.incoming() { // TCP 연결 처리하ㅓㅁ! 
-        match stream {
-            Ok(stream) => {
-                    handle_client(stream, &mut evm); // 여기서는 Data Transfer를 처리함  그니까 이게 Json rpc Handler임 
-            }
-            Err(e) => {
-                println!("Error: {}", e);
-            }
-        }
-    }
-
+async fn main() -> eyre::Result<()> {
+    
     
 
     Ok(())
+}
 
+
+#[cfg(test)]
+mod tests {
+    use alloy_primitives::{B256, U64};
+    use jsonrpsee_types::error::INVALID_PARAMS_CODE;
+    use reth_chainspec::{BaseFeeParams, ChainSpec};
+    use reth_evm_ethereum::EthEvmConfig;
+    use reth_network_api::noop::NoopNetwork;
+    use reth_primitives::{Block, BlockBody, BlockNumberOrTag, Header, TransactionSigned};
+    use reth_provider::{
+        test_utils::{MockEthProvider, NoopProvider},
+        BlockReader, BlockReaderIdExt, ChainSpecProvider, EvmEnvProvider, StateProviderFactory,
+    };
+    use reth_rpc_eth_api::EthApiServer;
+    use reth_rpc_eth_types::{
+        EthStateCache, FeeHistoryCache, FeeHistoryCacheConfig, GasPriceOracle,
+    };
+    use reth_rpc_server_types::constants::{
+        DEFAULT_ETH_PROOF_WINDOW, DEFAULT_MAX_SIMULATE_BLOCKS, DEFAULT_PROOF_PERMITS,
+    };
+    use reth_tasks::pool::BlockingTaskPool;
+    use reth_testing_utils::{generators, generators::Rng};
+    use reth_transaction_pool::test_utils::{testing_pool, TestPool};
+    use reth_rpc::eth::EthApi;
+
+
+
+    fn build_test_eth_api<
+        P: BlockReaderIdExt
+            + BlockReader
+            + ChainSpecProvider<ChainSpec = ChainSpec>
+            + EvmEnvProvider
+            + StateProviderFactory
+            + Unpin
+            + Clone
+            + 'static,
+    >(
+        provider: P,
+    ) -> EthApi<P, TestPool, NoopNetwork, EthEvmConfig> {
+        let evm_config = EthEvmConfig::new(provider.chain_spec());
+        let cache = EthStateCache::spawn(provider.clone(), Default::default(), evm_config.clone());
+        let fee_history_cache =
+            FeeHistoryCache::new(cache.clone(), FeeHistoryCacheConfig::default());
+
+        let gas_cap = provider.chain_spec().max_gas_limit;
+        EthApi::new(
+            provider.clone(),
+            testing_pool(),
+            NoopNetwork::default(),
+            cache.clone(),
+            GasPriceOracle::new(provider, Default::default(), cache),
+            gas_cap,
+            DEFAULT_MAX_SIMULATE_BLOCKS,
+            DEFAULT_ETH_PROOF_WINDOW,
+            BlockingTaskPool::build().expect("failed to build tracing pool"),
+            fee_history_cache,
+            evm_config,
+            DEFAULT_PROOF_PERMITS,
+        )
+    }
+
+    // Function to prepare the EthApi with mock data
+    fn prepare_eth_api(
+        newest_block: u64,
+        mut oldest_block: Option<B256>,
+        block_count: u64,
+        mock_provider: MockEthProvider,
+    ) -> (EthApi<MockEthProvider, TestPool, NoopNetwork, EthEvmConfig>, Vec<u128>, Vec<f64>) {
+        let mut rng = generators::rng();
+
+        // Build mock data
+        let mut gas_used_ratios = Vec::new();
+        let mut base_fees_per_gas = Vec::new();
+        let mut last_header = None;
+        let mut parent_hash = B256::default();
+
+        for i in (0..block_count).rev() {
+            let hash = rng.gen();
+            let gas_limit: u64 = rng.gen();
+            let gas_used: u64 = rng.gen();
+            // Note: Generates a u32 to avoid overflows later
+            let base_fee_per_gas: Option<u64> = rng.gen::<bool>().then(|| rng.gen::<u32>() as u64);
+
+            let header = Header {
+                number: newest_block - i,
+                gas_limit,
+                gas_used,
+                base_fee_per_gas,
+                parent_hash,
+                ..Default::default()
+            };
+            last_header = Some(header.clone());
+            parent_hash = hash;
+
+            let mut transactions = vec![];
+            for _ in 0..100 {
+                let random_fee: u128 = rng.gen();
+
+                if let Some(base_fee_per_gas) = header.base_fee_per_gas {
+                    let transaction = TransactionSigned {
+                        transaction: reth_primitives::Transaction::Eip1559(
+                            alloy_consensus::transaction::TxEip1559 {
+                                max_priority_fee_per_gas: random_fee,
+                                max_fee_per_gas: random_fee + base_fee_per_gas as u128,
+                                ..Default::default()
+                            },
+                        ),
+                        ..Default::default()
+                    };
+
+                    transactions.push(transaction);
+                } else {
+                    let transaction = TransactionSigned {
+                        transaction: reth_primitives::Transaction::Legacy(Default::default()),
+                        ..Default::default()
+                    };
+
+                    transactions.push(transaction);
+                }
+            }
+
+            mock_provider.add_block(
+                hash,
+                Block { header: header.clone(), body: BlockBody {transactions, ..Default::default()} },
+            );
+            mock_provider.add_header(hash, header);
+
+            oldest_block.get_or_insert(hash);
+            gas_used_ratios.push(gas_used as f64 / gas_limit as f64);
+            base_fees_per_gas.push(base_fee_per_gas.map(|fee| fee as u128).unwrap_or_default());
+        }
+
+        // Add final base fee (for the next block outside of the request)
+        let last_header = last_header.unwrap();
+        base_fees_per_gas.push(BaseFeeParams::ethereum().next_block_base_fee(
+            last_header.gas_used,
+            last_header.gas_limit ,
+            last_header.base_fee_per_gas.unwrap_or_default(),
+        ) as u128);
+
+        let eth_api = build_test_eth_api(mock_provider);
+
+        (eth_api, base_fees_per_gas, gas_used_ratios)
+    }
+
+    /// Invalid block range
+    #[tokio::test]
+    async fn test_fee_history_empty() {
+        let response = <EthApi<_, _, _, _> as EthApiServer<_, _, _>>::fee_history(
+            &build_test_eth_api(NoopProvider::default()),
+            U64::from(1),
+            BlockNumberOrTag::Latest,
+            None,
+        )
+        .await;
+        assert!(response.is_err());
+        let error_object = response.unwrap_err();
+        assert_eq!(error_object.code(), INVALID_PARAMS_CODE);
+    }
+
+    #[tokio::test]
+    /// Invalid block range (request is before genesis)
+    async fn test_fee_history_invalid_block_range_before_genesis() {
+        let block_count = 10;
+        let newest_block = 1337;
+        let oldest_block = None;
+
+        let (eth_api, _, _) =
+            prepare_eth_api(newest_block, oldest_block, block_count, MockEthProvider::default());
+
+        let response = <EthApi<_, _, _, _> as EthApiServer<_, _, _>>::fee_history(
+            &eth_api,
+            U64::from(newest_block + 1),
+            newest_block.into(),
+            Some(vec![10.0]),
+        )
+        .await;
+
+        assert!(response.is_err());
+        let error_object = response.unwrap_err();
+        assert_eq!(error_object.code(), INVALID_PARAMS_CODE);
+    }
+
+    #[tokio::test]
+    /// Invalid block range (request is in the future)
+    async fn test_fee_history_invalid_block_range_in_future() {
+        let block_count = 10;
+        let newest_block = 1337;
+        let oldest_block = None;
+
+        let (eth_api, _, _) =
+            prepare_eth_api(newest_block, oldest_block, block_count, MockEthProvider::default());
+
+        let response = <EthApi<_, _, _, _> as EthApiServer<_, _, _>>::fee_history(
+            &eth_api,
+            U64::from(1),
+            (newest_block + 1000).into(),
+            Some(vec![10.0]),
+        )
+        .await;
+
+        assert!(response.is_err());
+        let error_object = response.unwrap_err();
+        assert_eq!(error_object.code(), INVALID_PARAMS_CODE);
+    }
+
+    #[tokio::test]
+    /// Requesting no block should result in a default response
+    async fn test_fee_history_no_block_requested() {
+        let block_count = 10;
+        let newest_block = 1337;
+        let oldest_block = None;
+
+        let (eth_api, _, _) =
+            prepare_eth_api(newest_block, oldest_block, block_count, MockEthProvider::default());
+
+        let response = <EthApi<_, _, _, _> as EthApiServer<_, _, _>>::fee_history(
+            &eth_api,
+            U64::from(0),
+            newest_block.into(),
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            response,
+            alloy_rpc_types_eth::FeeHistory::default(),
+            "none: requesting no block should yield a default response"
+        );
+    }
+
+    #[tokio::test]
+    /// Requesting a single block should return 1 block (+ base fee for the next block over)
+    async fn test_fee_history_single_block() {
+        let block_count = 10;
+        let newest_block = 1337;
+        let oldest_block = None;
+
+        let (eth_api, base_fees_per_gas, gas_used_ratios) =
+            prepare_eth_api(newest_block, oldest_block, block_count, MockEthProvider::default());
+
+        let fee_history =
+            eth_api.fee_history(U64::from(1), newest_block.into(), None).await.unwrap();
+        assert_eq!(
+            fee_history.base_fee_per_gas,
+            &base_fees_per_gas[base_fees_per_gas.len() - 2..],
+            "one: base fee per gas is incorrect"
+        );
+        assert_eq!(
+            fee_history.base_fee_per_gas.len(),
+            2,
+            "one: should return base fee of the next block as well"
+        );
+        assert_eq!(
+            &fee_history.gas_used_ratio,
+            &gas_used_ratios[gas_used_ratios.len() - 1..],
+            "one: gas used ratio is incorrect"
+        );
+        assert_eq!(fee_history.oldest_block, newest_block, "one: oldest block is incorrect");
+        assert!(
+            fee_history.reward.is_none(),
+            "one: no percentiles were requested, so there should be no rewards result"
+        );
+    }
+
+    /// Requesting all blocks should be ok
+    #[tokio::test]
+    async fn test_fee_history_all_blocks() {
+        let block_count = 10;
+        let newest_block = 1337;
+        let oldest_block = None;
+
+        let (eth_api, base_fees_per_gas, gas_used_ratios) =
+            prepare_eth_api(newest_block, oldest_block, block_count, MockEthProvider::default());
+
+        let fee_history =
+            eth_api.fee_history(U64::from(block_count), newest_block.into(), None).await.unwrap();
+
+        assert_eq!(
+            &fee_history.base_fee_per_gas, &base_fees_per_gas,
+            "all: base fee per gas is incorrect"
+        );
+        assert_eq!(
+            fee_history.base_fee_per_gas.len() as u64,
+            block_count + 1,
+            "all: should return base fee of the next block as well"
+        );
+        assert_eq!(
+            &fee_history.gas_used_ratio, &gas_used_ratios,
+            "all: gas used ratio is incorrect"
+        );
+        assert_eq!(
+            fee_history.oldest_block,
+            newest_block - block_count + 1,
+            "all: oldest block is incorrect"
+        );
+        assert!(
+            fee_history.reward.is_none(),
+            "all: no percentiles were requested, so there should be no rewards result"
+        );
+    }
 }
