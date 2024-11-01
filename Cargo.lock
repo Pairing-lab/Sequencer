@@ -809,6 +809,18 @@ dependencies = [
 
 [[package]]
 name = "alloy-rpc-types-admin"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fefd12e99dd6b7de387ed13ad047ce2c90d8950ca62fc48b8a457ebb8f936c61"
+dependencies = [
+ "alloy-genesis 0.3.6",
+ "alloy-primitives",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "alloy-rpc-types-admin"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb520ed46cc5b7d8c014a73fdd77b6a310383a2a5c0a5ae3c9b8055881f062b7"
@@ -10718,6 +10730,12 @@ dependencies = [
 name = "sequencer-rpc"
 version = "0.1.0"
 dependencies = [
+ "alloy-rpc-types-admin 0.3.6",
+ "enr",
+ "reth-eth-wire-types 1.1.0",
+ "reth-network-api 1.1.0",
+ "reth-network-peers 1.1.0",
+ "reth-network-types 1.1.0",
  "serde",
  "serde_json",
 ]

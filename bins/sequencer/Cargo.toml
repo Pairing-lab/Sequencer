@@ -6,39 +6,39 @@ resolver = "2"
 
 [dependencies]
 revm = { workspace = true }
-revm-primitives = { workspace = true, features = ["serde"]}
+revm-primitives = { workspace = true, features = ["serde"] }
 reth = { workspace = true }
-axum.workspace = true
-tokio.workspace = true
-serde.workspace = true
-database.workspace = true
-actix-web = "4"
-serde_json.workspace = true
-alloy-genesis.workspace = true
-alloy-primitives.workspace = true
-eyre.workspace = true
-mempool.workspace = true
-rpc.workspace = true
-jsonrpsee = "0.24"
-jsonrpsee-types = "0.24"
-reth-db = { git = "https://github.com/paradigmxyz/reth", default-features = false }
-reth-db-api = { git = "https://github.com/paradigmxyz/reth" }
-reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth" }
-reth-testing-utils = {git = "https://github.com/paradigmxyz/reth"}
-reth-transaction-pool = {git = "https://github.com/paradigmxyz/reth", features = ["test-utils"]}
-reth-primitives = { git  = "https://github.com/paradigmxyz/reth", features = ["reth-codec", "std"]}
-reth-provider = {git = "https://github.com/paradigmxyz/reth", features = ["test-utils"]}
-reth-chainspec = {git = "https://github.com/paradigmxyz/reth"}
-reth-codecs = {git = "https://github.com/paradigmxyz/reth"}
-reth-rpc-eth-types = {git = "https://github.com/paradigmxyz/reth"}
-reth-rpc-eth-api = {git = "https://github.com/paradigmxyz/reth"}
-reth-network-api = {git = "https://github.com/paradigmxyz/reth"}
-reth-node-api = { git = "https://github.com/paradigmxyz/reth"}
-reth-rpc-server-types = {git = "https://github.com/paradigmxyz/reth"}
-reth-rpc = {git = "https://github.com/paradigmxyz/reth"}
-reth-tasks = {git = "https://github.com/paradigmxyz/reth"}
-alloy-consensus = {version = "0.5.4"}
-alloy-network = { version = "0.3.6", default-features = false }
-derive_more = { version = "1", features = ["full"] }
-alloy-eips = { version = "0.3.6", default-features = false }
-alloy-rpc-types-eth = { version = "0.5.4", default-features = false }
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+database = { workspace = true }
+actix-web = { workspace = true }
+serde_json = { workspace = true }
+alloy-genesis = { workspace = true }
+alloy-primitives = { workspace = true }
+eyre = { workspace = true }
+mempool = { workspace = true }
+rpc = { workspace = true }
+jsonrpsee = { workspace = true }
+jsonrpsee-types = { workspace = true }
+reth-db = { workspace = true }
+reth-db-api = { workspace = true }
+reth-evm-ethereum = { workspace = true }
+reth-testing-utils = { workspace = true }
+reth-transaction-pool = { workspace = true, features = ["test-utils"] }
+reth-primitives = { workspace = true, features = ["reth-codec", "std"] }
+reth-provider = { workspace = true, features = ["test-utils"] }
+reth-chainspec = { workspace = true }
+reth-codecs = { workspace = true }
+reth-rpc-eth-types = { workspace = true }
+reth-rpc-eth-api = { workspace = true }
+reth-network-api = { workspace = true }
+reth-node-api = { workspace = true }
+reth-rpc-server-types = { workspace = true }
+reth-rpc = { workspace = true }
+reth-tasks = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-network = { workspace = true }
+derive_more = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-rpc-types-eth = { workspace = true }

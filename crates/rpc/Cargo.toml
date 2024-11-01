@@ -7,3 +7,9 @@ edition = "2021"
 # 필요한 의존성 추가
 serde_json.workspace = true
 serde.workspace = true
+reth-network-api.workspace = true
+enr.workspace = true
+alloy-rpc-types-admin.workspace = true
+reth-eth-wire-types.workspace = true
+reth-network-peers.workspace = true
+reth-network-types.workspace = true

@@ -11,6 +11,8 @@
 //! ```sh
 //! cast rpc myrpcExt_customMethod
 //! ```
+//! 
+/* 
 use std::sync::Arc;
 
 use alloy_network::AnyNetwork;
@@ -34,6 +36,15 @@ use reth_tasks::{
 };
 use tokio::sync::Mutex;
 use reth_rpc::eth::EthTxBuilder;
+use rpc::stardust_network::STARDUSTTESTNetwork;
+use jsonrpsee::server::ServerBuilder;
+*/
+
+
+use reth_provider::test_utils::NoopProvider;
+use reth_rpc_eth_api::EthApiServer;
+use jsonrpsee::{server::ServerBuilder, RpcModule};
+use sequencer_bin::api_builder::build_dummy_eth_api;
 
 
 // Custom rpc extension
@@ -41,11 +52,27 @@ pub mod myrpc_ext;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    
-    
+
+    let provider = NoopProvider::default();
+    let eth_api =   build_dummy_eth_api(provider.clone());
+
+    let rpc_module  = RpcModule::new(());
+
+    let server = ServerBuilder::default()
+        .build("127.0.0.1:8545")
+        .await?;
+
+    let module = eth_api.into_rpc();
+
+    let server_handle = server.start(module);
+
+    tokio::signal::ctrl_c().await?;
+    println!("Shutting down server...");
+
 
     Ok(())
 }
+
 
 
 #[cfg(test)]
@@ -54,7 +81,7 @@ mod tests {
     use jsonrpsee_types::error::INVALID_PARAMS_CODE;
     use reth_chainspec::{BaseFeeParams, ChainSpec};
     use reth_evm_ethereum::EthEvmConfig;
-    use reth_network_api::noop::NoopNetwork;
+    use rpc::stardust_network::STARDUSTTESTNetwork;
     use reth_primitives::{Block, BlockBody, BlockNumberOrTag, Header, TransactionSigned};
     use reth_provider::{
         test_utils::{MockEthProvider, NoopProvider},
@@ -85,7 +112,7 @@ mod tests {
             + 'static,
     >(
         provider: P,
-    ) -> EthApi<P, TestPool, NoopNetwork, EthEvmConfig> {
+    ) -> EthApi<P, TestPool, STARDUSTTESTNetwork, EthEvmConfig> {
         let evm_config = EthEvmConfig::new(provider.chain_spec());
         let cache = EthStateCache::spawn(provider.clone(), Default::default(), evm_config.clone());
         let fee_history_cache =
@@ -95,7 +122,7 @@ mod tests {
         EthApi::new(
             provider.clone(),
             testing_pool(),
-            NoopNetwork::default(),
+            STARDUSTTESTNetwork::default(),
             cache.clone(),
             GasPriceOracle::new(provider, Default::default(), cache),
             gas_cap,
@@ -114,7 +141,7 @@ mod tests {
         mut oldest_block: Option<B256>,
         block_count: u64,
         mock_provider: MockEthProvider,
-    ) -> (EthApi<MockEthProvider, TestPool, NoopNetwork, EthEvmConfig>, Vec<u128>, Vec<f64>) {
+    ) -> (EthApi<MockEthProvider, TestPool, STARDUSTTESTNetwork, EthEvmConfig>, Vec<u128>, Vec<f64>) {
         let mut rng = generators::rng();
 
         // Build mock data
