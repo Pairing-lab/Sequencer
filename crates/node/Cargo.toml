@@ -1,0 +1,49 @@
+[package]
+name = "sequencer-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# 필요한 의존성 추가
+serde_json.workspace = true
+serde.workspace = true
+reth-network-api.workspace = true
+enr.workspace = true
+alloy-rpc-types-admin.workspace = true
+reth-eth-wire-types.workspace = true
+reth-network-peers.workspace = true
+reth-network-types.workspace = true
+reth-auto-seal-consensus.workspace = true      
+reth-basic-payload-builder.workspace = true
+reth-chainspec.workspace = true
+reth-ethereum-engine-primitives.workspace = true
+reth-evm-ethereum.workspace = true
+reth-network.workspace = true
+reth-node-api.workspace = true
+reth-node-builder.workspace = true
+reth-payload-builder.workspace = true
+reth-primitives.workspace = true
+reth-provider.workspace = true
+reth-rpc.workspace = true
+reth-tracing.workspace = true
+reth-transaction-pool.workspace = true
+reth-node-ethereum.workspace = true
+reth-evm.workspace = true
+reth-trie-db.workspace = true
+eyre.workspace = true
+revm = { workspace = true, features = ["secp256k1", "blst", "c-kzg"] }
+reth-revm = { workspace = true, features = ["std"] }
+reth-node-core.workspace = true
+reth-node-types.workspace = true
+reth-tasks.workspace = true
+reth-beacon-consensus.workspace = true
+reth-ethereum-payload-builder.workspace = true
+reth-consensus.workspace = true
+reth.workspace = true
+alloy-genesis.workspace = true
+
+
+
+
+
+###builder

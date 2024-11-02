@@ -1,50 +1,27 @@
-//! Example illustrating how to run the ETH JSON RPC API as standalone over a DB file.
-//!
-//! Run with
-//!
-//! ```not_rust
-//! cargo run -p rpc-db
-//! ```
-//!
-//! This installs an additional RPC method `myrpcExt_customMethod` that can queried via [cast](https://github.com/foundry-rs/foundry)
-//!
-//! ```sh
-//! cast rpc myrpcExt_customMethod
-//! ```
-//! 
-/* 
-use std::sync::Arc;
-
-use alloy_network::AnyNetwork;
-use alloy_primitives::U256;
-use derive_more::Deref;
-use reth::api::node::BuilderProvider;
-use reth_node_api::{FullNodeComponents};
-use reth_primitives::BlockNumberOrTag;
-use reth_provider::{CanonStateSubscriptions, ChainSpecProvider};
-use reth_rpc_eth_api::{
-    helpers::{EthSigner, SpawnBlocking},
-    EthApiTypes,
-};
-use reth_rpc_eth_types::{
-    EthApiBuilderCtx, EthApiError, EthStateCache, FeeHistoryCache, GasCap, GasPriceOracle,
-    PendingBlock,
-};
-use reth_tasks::{
-    pool::{BlockingTaskGuard, BlockingTaskPool},
-    TaskExecutor, TaskSpawner, TokioTaskExecutor,
-};
-use tokio::sync::Mutex;
-use reth_rpc::eth::EthTxBuilder;
-use rpc::stardust_network::STARDUSTTESTNetwork;
-use jsonrpsee::server::ServerBuilder;
-*/
-
 
 use reth_provider::test_utils::NoopProvider;
 use reth_rpc_eth_api::EthApiServer;
 use jsonrpsee::{server::ServerBuilder, RpcModule};
 use sequencer_bin::api_builder::build_dummy_eth_api;
+
+use std::sync::Arc;
+
+
+use alloy_genesis::Genesis;
+use alloy_primitives::{b256, hex};
+use futures::StreamExt;
+use reth::{args::DevArgs, rpc::api::eth::helpers::EthTransactions};
+use reth_chainspec::ChainSpec;
+use reth_e2e_test_utils::setup;
+use reth_node_api::FullNodeComponents;
+use reth_node_builder::{
+    rpc::RethRpcAddOns, EngineNodeLauncher, FullNode, NodeBuilder, NodeConfig, NodeHandle,
+};
+use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
+use reth_provider::{providers::BlockchainProvider2, CanonStateSubscriptions};
+use reth_tasks::TaskManager;
+
+
 
 
 // Custom rpc extension
@@ -53,6 +30,7 @@ pub mod myrpc_ext;
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
 
+    // RPc 
     let provider = NoopProvider::default();
     let eth_api =   build_dummy_eth_api(provider.clone());
 
@@ -66,12 +44,82 @@ async fn main() -> eyre::Result<()> {
 
     let server_handle = server.start(module);
 
+
+    // Build test node
+    reth_tracing::init_test_tracing();
+    let tasks = TaskManager::current();
+    let exec = tasks.executor();
+
+    let node_config = NodeConfig::test()
+        .with_chain(custom_chain())
+        .with_dev(reth_node_core::args::DevArgs { dev: true, ..Default::default() });
+    let NodeHandle { node, .. } = NodeBuilder::new(node_config.clone())
+        .testing_node(exec.clone())
+        .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
+        .with_components(EthereumNode::components())
+        .with_add_ons(EthereumAddOns::default())
+        .launch_with_fn(|builder| {
+            let launcher = EngineNodeLauncher::new(
+                builder.task_executor().clone(),
+                builder.config().datadir(),
+                Default::default(),
+            );
+            builder.launch_with(launcher)
+        })
+        .await?;
+
+
     tokio::signal::ctrl_c().await?;
     println!("Shutting down server...");
 
-
+    
     Ok(())
 }
+
+
+
+fn custom_chain() -> Arc<ChainSpec> {
+    let custom_genesis = r#"
+{
+
+    "nonce": "0x42",
+    "timestamp": "0x0",
+    "extraData": "0x5343",
+    "gasLimit": "0x13880",
+    "difficulty": "0x400000000",
+    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "coinbase": "0x0000000000000000000000000000000000000000",
+    "alloc": {
+        "0x6Be02d1d3665660d22FF9624b7BE0551ee1Ac91b": {
+            "balance": "0x4a47e3c12448f4ad000000"
+        }
+    },
+    "number": "0x0",
+    "gasUsed": "0x0",
+    "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "config": {
+        "ethash": {},
+        "chainId": 2600,
+        "homesteadBlock": 0,
+        "eip150Block": 0,
+        "eip155Block": 0,
+        "eip158Block": 0,
+        "byzantiumBlock": 0,
+        "constantinopleBlock": 0,
+        "petersburgBlock": 0,
+        "istanbulBlock": 0,
+        "berlinBlock": 0,
+        "londonBlock": 0,
+        "terminalTotalDifficulty": 0,
+        "terminalTotalDifficultyPassed": true,
+        "shanghaiTime": 0
+    }
+}
+"#;
+    let genesis: Genesis = serde_json::from_str(custom_genesis).unwrap();
+    Arc::new(genesis.into())
+}
+
 
 
 

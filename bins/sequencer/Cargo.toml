@@ -8,11 +8,9 @@ resolver = "2"
 revm = { workspace = true }
 revm-primitives = { workspace = true, features = ["serde"] }
 reth = { workspace = true }
-axum = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 database = { workspace = true }
-actix-web = { workspace = true }
 serde_json = { workspace = true }
 alloy-genesis = { workspace = true }
 alloy-primitives = { workspace = true }
@@ -42,3 +40,12 @@ alloy-network = { workspace = true }
 derive_more = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-rpc-types-eth = { workspace = true }
+futures = "0.3.31"
+reth-e2e-test-utils.workspace = true
+reth-node-builder.workspace = true
+reth-node-ethereum.workspace = true
+reth-payload-builder.workspace = true
+alloy-rpc-types-engine.workspace = true
+reth-tracing.workspace = true
+reth-node-core.workspace = true
+
