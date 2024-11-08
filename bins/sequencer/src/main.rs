@@ -1,26 +1,22 @@
 
+use reth::builder::node;
 use reth_provider::test_utils::NoopProvider;
 use reth_rpc_eth_api::EthApiServer;
 use jsonrpsee::{server::ServerBuilder, RpcModule};
+use reth_tasks::TaskManager;
 use sequencer_bin::api_builder::build_dummy_eth_api;
 
 use std::sync::Arc;
 
-
 use alloy_genesis::Genesis;
-use alloy_primitives::{b256, hex};
-use futures::StreamExt;
-use reth::{args::DevArgs, rpc::api::eth::helpers::EthTransactions};
 use reth_chainspec::ChainSpec;
-use reth_e2e_test_utils::setup;
-use reth_node_api::FullNodeComponents;
-use reth_node_builder::{
-    rpc::RethRpcAddOns, EngineNodeLauncher, FullNode, NodeBuilder, NodeConfig, NodeHandle,
-};
-use reth_node_ethereum::{node::EthereumAddOns, EthereumNode};
-use reth_provider::{providers::BlockchainProvider2, CanonStateSubscriptions};
-use reth_tasks::TaskManager;
 
+use reth_node_builder::EngineNodeLauncher;
+use reth_provider::providers::BlockchainProvider2;
+use stardust_reth::stardust_node::{StardustAddOns, StardustNode};
+use reth_node_builder::NodeConfig;
+
+use reth_optimism_node::args::RollupArgs;
 
 
 
@@ -45,19 +41,25 @@ async fn main() -> eyre::Result<()> {
     let server_handle = server.start(module);
 
 
-    // Build test node
+    // 기본 RollupArgs 생성
+    let rollup_args = RollupArgs::default();
+    let sequencer_http_arg = rollup_args.sequencer_http.clone();
+
+    // 기본 builder 생성 (실제 구현에 따라 수정 필요)
     reth_tracing::init_test_tracing();
     let tasks = TaskManager::current();
     let exec = tasks.executor();
 
+
     let node_config = NodeConfig::test()
         .with_chain(custom_chain())
         .with_dev(reth_node_core::args::DevArgs { dev: true, ..Default::default() });
-    let NodeHandle { node, .. } = NodeBuilder::new(node_config.clone())
+    
+    let handle = reth_node_builder::NodeBuilder::new(node_config.clone())
         .testing_node(exec.clone())
-        .with_types_and_provider::<EthereumNode, BlockchainProvider2<_>>()
-        .with_components(EthereumNode::components())
-        .with_add_ons(EthereumAddOns::default())
+        .with_types_and_provider::<StardustNode, BlockchainProvider2<_>>()
+        .with_components(StardustNode::components()) //TODO: implement Nodecomponentsbuilder
+        .with_add_ons(StardustAddOns::new(sequencer_http_arg))
         .launch_with_fn(|builder| {
             let launcher = EngineNodeLauncher::new(
                 builder.task_executor().clone(),
@@ -65,8 +67,7 @@ async fn main() -> eyre::Result<()> {
                 Default::default(),
             );
             builder.launch_with(launcher)
-        })
-        .await?;
+        }).await;
 
 
     tokio::signal::ctrl_c().await?;

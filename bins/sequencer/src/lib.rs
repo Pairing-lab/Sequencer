@@ -3,7 +3,7 @@ pub use jsonrpsee_types::error::INVALID_PARAMS_CODE;
 pub use reth_chainspec::{BaseFeeParams, ChainSpec};
 pub use reth_evm_ethereum::EthEvmConfig;
 pub use rpc::stardust_network::STARDUSTTESTNetwork;
-pub use reth_primitives::{Block, BlockBody, BlockNumberOrTag, Header, TransactionSigned};
+pub use reth_primitives::{Block, BlockBody, Header, TransactionSigned};
 pub use reth_provider::{
         test_utils::{MockEthProvider, NoopProvider},
         BlockReader, BlockReaderIdExt, ChainSpecProvider, EvmEnvProvider, StateProviderFactory,

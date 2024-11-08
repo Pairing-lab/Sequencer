@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use reth_basic_payload_builder::{BasicPayloadJobGenerator, BasicPayloadJobGeneratorConfig};
-use reth_chainspec::{EthChainSpec, Hardforks};
+use reth_chainspec::{EthChainSpec, Hardforks,ChainSpec};
 use reth_evm::{execute::BasicBlockExecutorProvider, ConfigureEvm};
 use reth_network::{NetworkConfig, NetworkHandle, NetworkManager, PeersInfo};
 use reth_node_api::{
@@ -67,9 +67,8 @@ impl StardustNode {
         StardustConsensusBuilder,
     >
     where
-        Node: FullNodeTypes<
-            Types: NodeTypesWithEngine<Engine = OpEngineTypes, ChainSpec = OpChainSpec>,
-        >,
+        Node: FullNodeTypes<Types: NodeTypesWithEngine<Engine = OpEngineTypes, ChainSpec = OpChainSpec>,>,
+        
     {
         ComponentsBuilder::default()
             .node_types::<Node>()
@@ -108,7 +107,7 @@ where
 
 impl NodeTypes for StardustNode {
     type Primitives = StardustPrimitives;
-    type ChainSpec = OpChainSpec;
+    type ChainSpec = ChainSpec;
     type StateCommitment = MerklePatriciaTrie;
 }
 

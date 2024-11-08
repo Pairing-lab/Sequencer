@@ -11447,13 +11447,13 @@ checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 name = "sequencer-bin"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.5.4",
- "alloy-eips 0.5.4",
- "alloy-genesis 0.5.4",
- "alloy-network 0.5.4",
+ "alloy-consensus 0.6.2",
+ "alloy-eips 0.6.2",
+ "alloy-genesis 0.6.2",
+ "alloy-network 0.6.2",
  "alloy-primitives",
- "alloy-rpc-types-engine 0.5.4",
- "alloy-rpc-types-eth 0.5.4",
+ "alloy-rpc-types-engine 0.6.2",
+ "alloy-rpc-types-eth 0.6.2",
  "derive_more",
  "eyre",
  "futures",
@@ -11471,6 +11471,7 @@ dependencies = [
  "reth-node-builder 1.1.1",
  "reth-node-core 1.1.1",
  "reth-node-ethereum 1.1.1",
+ "reth-optimism-node",
  "reth-payload-builder 1.1.1",
  "reth-primitives 1.1.1",
  "reth-provider 1.1.1",
@@ -11489,6 +11490,7 @@ dependencies = [
  "sequencer-rpc",
  "serde",
  "serde_json",
+ "stardust-reth",
  "tokio",
 ]
 
@@ -11525,8 +11527,8 @@ dependencies = [
 name = "sequencer-node"
 version = "0.1.0"
 dependencies = [
- "alloy-genesis 0.5.4",
- "alloy-rpc-types-admin 0.5.4",
+ "alloy-genesis 0.6.2",
+ "alloy-rpc-types-admin 0.6.2",
  "enr",
  "eyre",
  "reth 1.1.0",
@@ -11576,7 +11578,7 @@ dependencies = [
 name = "sequencer-rpc"
 version = "0.1.0"
 dependencies = [
- "alloy-rpc-types-admin 0.5.4",
+ "alloy-rpc-types-admin 0.6.2",
  "enr",
  "reth-eth-wire-types 1.1.1",
  "reth-network-api 1.1.1",
