@@ -27,6 +27,7 @@ reth-optimism-node.workspace = true
 reth-optimism-payload-builder.workspace  = true 
 eyre = { workspace = true }
 reth-consensus.workspace = true
+reth-auto-seal-consensus.workspace = true
 # You may need to add your crate's name here if it's a separate crate
 # crate-name = { version = "0.1.0", path = "." }
 

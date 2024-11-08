@@ -18,8 +18,8 @@ use reth_node_builder::{
     rpc::{EngineValidatorBuilder, RethRpcAddOns, RpcAddOns, RpcHandle},
     BuilderContext, Node, NodeAdapter, NodeComponentsBuilder, PayloadBuilderConfig,
 };
+use reth_optimism_consensus::OpBeaconConsensus as StradustConsensus;
 use reth_optimism_chainspec::OpChainSpec;
-use reth_optimism_consensus::OpBeaconConsensus;
 use reth_optimism_evm::{OpEvmConfig, OpExecutionStrategyFactory};
 use reth_optimism_payload_builder::builder::OpPayloadTransactions;
 use reth_optimism_rpc::OpEthApi;
@@ -52,21 +52,13 @@ impl NodePrimitives for StardustPrimitives {
 /// Type configuration for a regular Optimism node.
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct StardustNode {
-    /// Additional Optimism args
-    pub args: RollupArgs,
-}
+pub struct StardustNode;
 
 impl StardustNode {
     /// Creates a new instance of the Optimism node type.
-    pub const fn new(args: RollupArgs) -> Self {
-        Self { args }
-    }
-
     /// Returns the components for the given [`RollupArgs`].
-    pub fn components<Node>(
-        args: RollupArgs,
-    ) -> ComponentsBuilder<
+    pub fn components<Node>() -> 
+    ComponentsBuilder<
         Node,
         StardustPoolBuilder,
         StardustPayloadBuilder,
@@ -79,15 +71,11 @@ impl StardustNode {
             Types: NodeTypesWithEngine<Engine = OpEngineTypes, ChainSpec = OpChainSpec>,
         >,
     {
-        let RollupArgs { disable_txpool_gossip, compute_pending_block, discovery_v4, .. } = args;
         ComponentsBuilder::default()
             .node_types::<Node>()
             .pool(StardustPoolBuilder::default())
-            .payload(StardustPayloadBuilder::new(compute_pending_block))
-            .network(StardustNetworkBuilder {
-                disable_txpool_gossip,
-                disable_discovery_v4: !discovery_v4,
-            })
+            .payload(StardustPayloadBuilder::default())
+            .network(StardustNetworkBuilder::default())
             .executor(StardustExecutorBuilder::default())
             .consensus(StardustConsensusBuilder::default())
     }
@@ -110,12 +98,11 @@ where
         StardustAddOns<NodeAdapter<N, <Self::ComponentsBuilder as NodeComponentsBuilder<N>>::Components>>;
 
     fn components_builder(&self) -> Self::ComponentsBuilder {
-        let Self { args } = self;
-        Self::components(args.clone())
+        Self::components()
     }
 
     fn add_ons(&self) -> Self::AddOns {
-        StardustAddOns::new(self.args.sequencer_http.clone())
+        StardustAddOns::default() // TODO:: new 만들기 
     }
 }
 
@@ -464,27 +451,28 @@ impl<Node> ConsensusBuilder<Node> for StardustConsensusBuilder
 where
     Node: FullNodeTypes<Types: NodeTypes<ChainSpec = OpChainSpec>>,
 {
-    type Consensus = Arc<dyn reth_consensus::Consensus>;
+    type Consensus = Arc<dyn reth_consensus::Consensus>;  
 
     async fn build_consensus(self, ctx: &BuilderContext<Node>) -> eyre::Result<Self::Consensus> {
-        Ok(Arc::new(OpBeaconConsensus::new(ctx.chain_spec())))
+        Ok(Arc::new(StradustConsensus::new(ctx.chain_spec())))
     }
 }
 
 /// Builder for [`OpEngineValidator`].
 #[derive(Debug, Default, Clone)]
 #[non_exhaustive]
-pub struct StardustEngineValidatorBuilder;
+pub struct OpEngineValidatorBuilder;
 
-impl<Node, Types> EngineValidatorBuilder<Node> for StardustEngineValidatorBuilder
+impl<Node, Types> EngineValidatorBuilder<Node> for OpEngineValidatorBuilder
 where
     Types: NodeTypesWithEngine<ChainSpec = OpChainSpec>,
     Node: FullNodeComponents<Types = Types>,
-    StardustEngineValidatorBuilder: EngineValidator<Types::Engine>,
+    OpEngineValidator: EngineValidator<Types::Engine>,
 {
-    type Validator = StardustEngineValidatorBuilder;
+    type Validator = OpEngineValidator;
 
     async fn build(self, ctx: &AddOnsContext<'_, Node>) -> eyre::Result<Self::Validator> {
-        Ok(StardustEngineValidatorBuilder::new(ctx.config.chain.clone()))
+        Ok(OpEngineValidator::new(ctx.config.chain.clone()))
     }
 }
+

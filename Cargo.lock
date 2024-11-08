@@ -11936,6 +11936,7 @@ name = "stardust-reth"
 version = "0.1.0"
 dependencies = [
  "eyre",
+ "reth-auto-seal-consensus",
  "reth-basic-payload-builder 1.1.1",
  "reth-chainspec 1.1.1",
  "reth-consensus 1.1.1",
