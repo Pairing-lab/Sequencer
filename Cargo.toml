@@ -20,6 +20,10 @@ tokio = { version = "1.40.0", features = ["full"] }
 serde = "1.0.210"
 database = { path = "crates/database", package = "sequencer-db", version = "0.1.0" }
 node = { path = "crates/node", package = "sequencer-node", version = "0.1.0" }
+stardust-reth = { path = "crates/stardust", package = "stardust-reth", version = "0.1.0" }
+
+
+
 
 alloy-chains = "0.1.32"
 alloy-dyn-abi = "0.8.0"
@@ -95,7 +99,7 @@ reth-tasks = {git = "https://github.com/paradigmxyz/reth"}
 reth-eth-wire-types = {git = "https://github.com/paradigmxyz/reth"}
 reth-network-peers = {git = "https://github.com/paradigmxyz/reth"}
 reth-network-types = {git = "https://github.com/paradigmxyz/reth"}
-reth-auto-seal-consensus = {git = "https://github.com/paradigmxyz/reth"}
+reth-auto-seal-consensus = {git = "https://github.com/paradigmxyz/reth", branch = "main" }
 reth-basic-payload-builder    = {git = "https://github.com/paradigmxyz/reth"}
 reth-beacon-consensus = {git = "https://github.com/paradigmxyz/reth"}
 reth-ethereum-engine-primitives = {git = "https://github.com/paradigmxyz/reth"}
@@ -109,8 +113,12 @@ reth-node-types = {git = "https://github.com/paradigmxyz/reth"}
 reth-ethereum-payload-builder = {git = "https://github.com/paradigmxyz/reth"} 
 reth-consensus = {git = "https://github.com/paradigmxyz/reth"} 
 reth-e2e-test-utils = {git = "https://github.com/paradigmxyz/reth"} 
-
-
+reth-optimism-chainspec = {git = "https://github.com/paradigmxyz/reth"} 
+reth-optimism-consensus = {git = "https://github.com/paradigmxyz/reth", features = ["optimism"]} 
+reth-optimism-evm = {git = "https://github.com/paradigmxyz/reth", features = ["optimism"]} 
+reth-optimism-rpc = {git = "https://github.com/paradigmxyz/reth", features = ["optimism"]} 
+reth-optimism-node = {git = "https://github.com/paradigmxyz/reth", features = ["optimism"]} 
+reth-optimism-payload-builder = {git = "https://github.com/paradigmxyz/reth", features = ["optimism"]} 
 
 derive_more = { version = "1", features = ["full"] }
 

@@ -1,0 +1,32 @@
+[package]
+name = "stardust-reth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Standard library
+# (no need to add std, it's part of Rust)
+
+reth-basic-payload-builder = { workspace = true }
+reth-chainspec = { workspace = true }
+reth-evm = { workspace = true }
+reth-network = { workspace = true }
+reth-node-api = { workspace = true }
+reth-node-builder = { workspace = true }
+reth-optimism-chainspec = { workspace = true }
+reth-optimism-consensus = { workspace = true }
+reth-optimism-evm = { workspace = true }
+reth-optimism-rpc = { workspace = true }
+reth-payload-builder = { workspace = true }
+reth-primitives = { workspace = true }
+reth-provider = { workspace = true }
+reth-tracing = { workspace = true }
+reth-transaction-pool = { workspace = true }
+reth-trie-db = { workspace = true }
+reth-optimism-node.workspace = true 
+reth-optimism-payload-builder.workspace  = true 
+eyre = { workspace = true }
+reth-consensus.workspace = true
+# You may need to add your crate's name here if it's a separate crate
+# crate-name = { version = "0.1.0", path = "." }
+
